@@ -1,0 +1,38 @@
+__pycache__/
+*.py[cod]
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.env
+.venv
+venv/s
+*.egg
+
+# Dataset (published separately — see README's Dataset section) and results
+data/AmLight-SNMP-TS/
+results/*.json
+results/*.csv
+results/figures/*.png
+results/figures/*.pdf
+!results/.gitkeep
+
+# Model weights
+models/weights/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,61 @@
+seed: 42
+
+model_variant:
+  chronos: "large"
+  moirai:  "large"
+
+data:
+  capacity_gbps: 100.0          # 100GE backbone (et-* Juniper interfaces)
+  raw_dir: "data/AmLight-SNMP-TS"  # AmLight-SNMP-TS dataset (telemetry.parquet + split_info.parquet)
+                                    # published separately — see README's Dataset section
+  # resample_freq omitted — telemetry.parquet is native 60-min from trends_uint
+  hours_per_step: 1.0           # 60-min resolution → 1 h per timestep
+  active_link_threshold: 0.005  # evaluate links with mean util ≥ 0.5% (~32/195 links at 60-min)
+  da_link_threshold: 0.001      # DA training includes all links with any traffic (≥0.1% mean util)
+
+model:
+  context_len: 336             # input window (14 days × 24 steps/day at 60-min resolution)
+  prediction_len: 48           # forecast horizon (48 h at 60-min resolution)
+  eval_horizon_start: 24       # evaluate on steps [24:48] = second 24 h (harder for baselines)
+  patch_len: 16
+  d_model: 128
+  n_heads: 8
+  n_layers: 3
+  dropout: 0.1
+
+finetune:
+  epochs: 50
+  pretrain_epochs: 30          # PatchTST Phase 1: masked patch reconstruction
+  batch_size: 32
+  learning_rate: 1.0e-4
+  weight_decay: 1.0e-5
+  patience: 10
+  mask_ratio: 0.15             # Stage 1 temporal masking fraction (Chronos/Moirai/TimesFM)
+  span_mask_ratio: 0.10        # Stage 1 span masking fraction
+  patch_mask_ratio: 0.40       # PatchTST Phase 1: fraction of patches masked (Nie et al. 2023)
+  stride: 4                    # foundation model stride: 4 steps (4 h at 60-min)
+  stride_patchtst: 2           # PatchTST stride: 2 steps (2 h at 60-min)
+  stride_da: 2                 # DA stride for active-link training: 2 steps → more windows
+
+baselines:
+  classical_max_windows: 100   # max evaluation windows for slow classical models (ARIMA/Prophet)
+  classical_seasonal_period: 24    # m=24 → daily seasonality at 60-min resolution (24 steps/day)
+
+tasks:
+  peak_threshold: 0.10         # util exceedance threshold for T2 — 10% at 60-min = 10 Gbps on 100GE
+  # Event rate: ~7.5% per (window, link) pair on 32 active links
+
+fewshot:
+  n_labeled: [5, 10, 25, 50, 100, 500]
+  n_trials: 10
+
+evaluation:
+  domain_adapt_fraction: 0.65   # Stage 1: self-supervised domain adaptation (largest)
+  train_fraction: 0.10          # Stage 2: few-shot task training + baselines
+  val_fraction: 0.05            # model selection (used by exp4; exp3_full_da uses an internal 85/15 split of domain_adapt)
+  test_fraction: 0.20           # final held-out evaluation (never seen during training)
+
+paths:
+  results: "results"
+  figures: "results/figures"
+  weights: "models/weights"
